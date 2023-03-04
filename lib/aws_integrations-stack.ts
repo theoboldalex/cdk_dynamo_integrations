@@ -4,7 +4,7 @@ import { AwsIntegration, Cors, RestApi } from 'aws-cdk-lib/aws-apigateway';
 import { AttributeType, BillingMode, Table } from 'aws-cdk-lib/aws-dynamodb';
 import { Effect, Policy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
-import { PolicyTypes } from './types';
+import { PolicyTypes, RoleTypes } from './types';
 
 export class AwsIntegrationsStack extends cdk.Stack {
     private readonly model: string = 'family';
@@ -20,16 +20,10 @@ export class AwsIntegrationsStack extends cdk.Stack {
         const scanPolicy = this.createPolicy('Scan');
         const getPolicy = this.createPolicy('GetItem');
 
-        const scanRole = new Role(this, 'scanRole', {
-            assumedBy: new ServicePrincipal('apigateway.amazonaws.com'),
-        });
-
+        const scanRole = this.createRole('Scan');
         scanRole.attachInlinePolicy(scanPolicy);
 
-        const getRole = new Role(this, 'getRole', {
-            assumedBy: new ServicePrincipal('apigateway.amazonaws.com'),
-        });
-
+        const getRole = this.createRole('Get');
         getRole.attachInlinePolicy(getPolicy);
 
         const errorResponses = [
@@ -139,6 +133,12 @@ export class AwsIntegrationsStack extends cdk.Stack {
                     resources: [this.table.tableArn],
                 }),
             ],
+        });
+    }
+
+    private createRole(type: RoleTypes): Role {
+        return new Role(this, `${type}Role`, {
+            assumedBy: new ServicePrincipal('apigateway.amazonaws.com'),
         });
     }
 }
