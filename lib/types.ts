@@ -1,2 +1,2 @@
-export type PolicyTypes = 'Scan' | 'GetItem' | 'PutItem';
-export type RoleTypes = 'Scan' | 'Get';
+export type PolicyTypes = 'Scan' | 'GetItem' | 'PutItem' | 'DeleteItem';
+export type RoleTypes = 'Scan' | 'Get' | 'Delete';

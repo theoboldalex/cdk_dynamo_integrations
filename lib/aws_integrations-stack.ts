@@ -19,12 +19,16 @@ export class AwsIntegrationsStack extends cdk.Stack {
 
         const scanPolicy = this.createPolicy('Scan');
         const getPolicy = this.createPolicy('GetItem');
+        const deletePolicy = this.createPolicy('DeleteItem');
 
         const scanRole = this.createRole('Scan');
         scanRole.attachInlinePolicy(scanPolicy);
 
         const getRole = this.createRole('Get');
         getRole.attachInlinePolicy(getPolicy);
+
+        const deleteRole = this.createRole('Delete');
+        deleteRole.attachInlinePolicy(deletePolicy);
 
         const errorResponses = [
             {
@@ -68,7 +72,7 @@ export class AwsIntegrationsStack extends cdk.Stack {
             service: 'dynamodb'
         });
 
-        const getRequest = new AwsIntegration({
+        const getResourceByIdRequest = new AwsIntegration({
             action: 'GetItem',
             options: {
                 credentialsRole: getRole,
@@ -87,6 +91,24 @@ export class AwsIntegrationsStack extends cdk.Stack {
             service: 'dynamodb'
         });
 
+        const deleteResourceByIdRequest = new AwsIntegration({
+            action: 'DeleteItem',
+            options: {
+                credentialsRole: deleteRole,
+                integrationResponses: integrationResponses,
+                requestTemplates: {
+                    'application/json': `{
+                        "Key": {
+                            "${this.model}-id": {
+                                "N": "$method.request.path.id"
+                            }
+                        },
+                        "TableName": "${this.table.tableName}"
+                    }`
+                }
+            },
+            service: 'dynamodb'
+        });
 
         const methodOptions = { 
             methodResponses: [
@@ -100,7 +122,8 @@ export class AwsIntegrationsStack extends cdk.Stack {
         const singleResource = allResources.addResource('{id}');
 
         allResources.addMethod('GET', scanRequest, methodOptions);
-        singleResource.addMethod('GET', getRequest, methodOptions);
+        singleResource.addMethod('GET', getResourceByIdRequest, methodOptions);
+        singleResource.addMethod('DELETE', deleteResourceByIdRequest, methodOptions);
     }
 
     private createRestApi(): RestApi {
@@ -122,7 +145,6 @@ export class AwsIntegrationsStack extends cdk.Stack {
             billingMode: BillingMode.PAY_PER_REQUEST,
             removalPolicy: RemovalPolicy.DESTROY
         });
-
     }
 
     private createPolicy(type: PolicyTypes): Policy {
