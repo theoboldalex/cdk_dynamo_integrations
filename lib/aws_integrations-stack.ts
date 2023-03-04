@@ -1,13 +1,24 @@
-import * as cdk from 'aws-cdk-lib';
-import { RemovalPolicy } from 'aws-cdk-lib';
-import { AwsIntegration, Cors, IntegrationResponse, RestApi } from 'aws-cdk-lib/aws-apigateway';
-import { AttributeType, BillingMode, Table } from 'aws-cdk-lib/aws-dynamodb';
-import { Effect, Policy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
-import { Construct } from 'constructs';
-import { ActionTypes, PolicyTypes, RoleTypes } from './types';
+import * as cdk from "aws-cdk-lib";
+import { RemovalPolicy } from "aws-cdk-lib";
+import {
+    AwsIntegration,
+    Cors,
+    IntegrationResponse,
+    RestApi,
+} from "aws-cdk-lib/aws-apigateway";
+import { AttributeType, BillingMode, Table } from "aws-cdk-lib/aws-dynamodb";
+import {
+    Effect,
+    Policy,
+    PolicyStatement,
+    Role,
+    ServicePrincipal,
+} from "aws-cdk-lib/aws-iam";
+import { Construct } from "constructs";
+import { ActionTypes, PolicyTypes, RoleTypes } from "./types";
 
 export class AwsIntegrationsStack extends cdk.Stack {
-    private readonly model: string = 'family';
+    private readonly model: string = "family";
     private readonly api: RestApi;
     private readonly table: Table;
     private readonly integrationResponses: IntegrationResponse[];
@@ -18,34 +29,34 @@ export class AwsIntegrationsStack extends cdk.Stack {
         this.api = this.createRestApi();
         this.table = this.createDynamoTable();
 
-        const scanPolicy = this.createPolicy('Scan');
-        const getPolicy = this.createPolicy('GetItem');
-        const deletePolicy = this.createPolicy('DeleteItem');
+        const scanPolicy = this.createPolicy("Scan");
+        const getPolicy = this.createPolicy("GetItem");
+        const deletePolicy = this.createPolicy("DeleteItem");
 
-        const scanRole = this.createRole('Scan');
+        const scanRole = this.createRole("Scan");
         scanRole.attachInlinePolicy(scanPolicy);
 
-        const getRole = this.createRole('Get');
+        const getRole = this.createRole("Get");
         getRole.attachInlinePolicy(getPolicy);
 
-        const deleteRole = this.createRole('Delete');
+        const deleteRole = this.createRole("Delete");
         deleteRole.attachInlinePolicy(deletePolicy);
 
         const errorResponses = [
             {
-                selectionPattern: '400',
-                statusCode: '400',
+                selectionPattern: "400",
+                statusCode: "400",
                 responseTemplates: {
-                    'application/json': `{
+                    "application/json": `{
                         "error": "Shoddy input!"
                     }`,
                 },
             },
             {
-                selectionPattern: '5\\d{2}',
-                statusCode: '500',
+                selectionPattern: "5\\d{2}",
+                statusCode: "500",
                 responseTemplates: {
-                    'application/json': `{
+                    "application/json": `{
                         "error": "Internal Service Error!"
                     }`,
                 },
@@ -54,63 +65,74 @@ export class AwsIntegrationsStack extends cdk.Stack {
 
         this.integrationResponses = [
             {
-                statusCode: '200',
+                statusCode: "200",
             },
             ...errorResponses,
         ];
 
-        const scanRequest = this.createDynamoActionIntegration('Scan', scanRole);
+        const scanRequest = this.createDynamoActionIntegration(
+            "Scan",
+            scanRole
+        );
 
-        const getResourceByIdRequest = this.createDynamoActionIntegration('GetItem', getRole,
-                                                                          `"Key": {
-            "${this.model}-id": {
-                "N": "$method.request.path.id"
-            }
-        },`
-                                                                         );
+        const getResourceByIdRequest = this.createDynamoActionIntegration(
+            "GetItem",
+            getRole,
+            `"Key": {
+                "${this.model}-id": {
+                    "N": "$method.request.path.id"
+                }
+            },`
+        );
 
-                                                                         const deleteResourceByIdRequest = this.createDynamoActionIntegration('DeleteItem', deleteRole, 
-                                                                                                                                              `"Key": {
-                                                                             "${this.model}-id": {
-                                                                                 "N": "$method.request.path.id"
-                                                                             }
-                                                                         },`
-                                                                                                                                             );
+        const deleteResourceByIdRequest = this.createDynamoActionIntegration(
+            "DeleteItem",
+            deleteRole,
+            `"Key": {
+                "${this.model}-id": {
+                    "N": "$method.request.path.id"
+                }
+            },`
+        );
 
-                                                                                                                                             const methodOptions = { 
-                                                                                                                                                 methodResponses: [
-                                                                                                                                                     { statusCode: '200' },
-                                                                                                                                                     { statusCode: '400' },
-                                                                                                                                                     { statusCode: '500' }
-                                                                                                                                                 ]
-                                                                                                                                             };
+        const methodOptions = {
+            methodResponses: [
+                { statusCode: "200" },
+                { statusCode: "400" },
+                { statusCode: "500" },
+            ],
+        };
 
-                                                                                                                                             const allResources = this.api.root.addResource('family');
-                                                                                                                                             const singleResource = allResources.addResource('{id}');
+        const allResources = this.api.root.addResource("family");
+        const singleResource = allResources.addResource("{id}");
 
-                                                                                                                                             allResources.addMethod('GET', scanRequest, methodOptions);
-                                                                                                                                             singleResource.addMethod('GET', getResourceByIdRequest, methodOptions);
-                                                                                                                                             singleResource.addMethod('DELETE', deleteResourceByIdRequest, methodOptions);
+        allResources.addMethod("GET", scanRequest, methodOptions);
+        singleResource.addMethod("GET", getResourceByIdRequest, methodOptions);
+        singleResource.addMethod(
+            "DELETE",
+            deleteResourceByIdRequest,
+            methodOptions
+        );
     }
 
     private createRestApi(): RestApi {
-        return new RestApi(this, 'ApiGateway', {
+        return new RestApi(this, "ApiGateway", {
             restApiName: `${this.model}-api`,
             defaultCorsPreflightOptions: {
-                allowOrigins: Cors.ALL_ORIGINS
-            }
+                allowOrigins: Cors.ALL_ORIGINS,
+            },
         });
     }
 
     private createDynamoTable(): Table {
-        return new Table(this, 'DynamoTable', {
+        return new Table(this, "DynamoTable", {
             partitionKey: {
                 name: `${this.model}-id`,
-                type: AttributeType.NUMBER
+                type: AttributeType.NUMBER,
             },
             tableName: `${this.model}-table`,
             billingMode: BillingMode.PAY_PER_REQUEST,
-            removalPolicy: RemovalPolicy.DESTROY
+            removalPolicy: RemovalPolicy.DESTROY,
         });
     }
 
@@ -128,24 +150,28 @@ export class AwsIntegrationsStack extends cdk.Stack {
 
     private createRole(type: RoleTypes): Role {
         return new Role(this, `${type}Role`, {
-            assumedBy: new ServicePrincipal('apigateway.amazonaws.com'),
+            assumedBy: new ServicePrincipal("apigateway.amazonaws.com"),
         });
     }
 
-    private createDynamoActionIntegration(type: ActionTypes, role: Role, requestParams: string = ''): AwsIntegration {
+    private createDynamoActionIntegration(
+        type: ActionTypes,
+        role: Role,
+        requestMapping: string = ""
+    ): AwsIntegration {
         return new AwsIntegration({
             action: type,
             options: {
                 credentialsRole: role,
                 integrationResponses: this.integrationResponses,
                 requestTemplates: {
-                    'application/json': `{
-                        ${requestParams}
+                    "application/json": `{
+                        ${requestMapping}
                         "TableName": "${this.table.tableName}"
-                    }`
-                }
+                    }`,
+                },
             },
-            service: 'dynamodb'
+            service: "dynamodb",
         });
     }
 }
