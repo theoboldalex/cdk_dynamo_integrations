@@ -1,15 +1,16 @@
 import * as cdk from 'aws-cdk-lib';
 import { RemovalPolicy } from 'aws-cdk-lib';
-import { AwsIntegration, Cors, RestApi } from 'aws-cdk-lib/aws-apigateway';
+import { AwsIntegration, Cors, IntegrationResponse, RestApi } from 'aws-cdk-lib/aws-apigateway';
 import { AttributeType, BillingMode, Table } from 'aws-cdk-lib/aws-dynamodb';
 import { Effect, Policy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
-import { PolicyTypes, RoleTypes } from './types';
+import { ActionTypes, PolicyTypes, RoleTypes } from './types';
 
 export class AwsIntegrationsStack extends cdk.Stack {
     private readonly model: string = 'family';
     private readonly api: RestApi;
     private readonly table: Table;
+    private readonly integrationResponses: IntegrationResponse[];
 
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
@@ -51,79 +52,45 @@ export class AwsIntegrationsStack extends cdk.Stack {
             },
         ];
 
-        const integrationResponses = [
+        this.integrationResponses = [
             {
                 statusCode: '200',
             },
             ...errorResponses,
         ];
 
-        const scanRequest = new AwsIntegration({
-            action: 'Scan',
-            options: {
-                credentialsRole: scanRole,
-                integrationResponses: integrationResponses,
-                requestTemplates: {
-                    'application/json': `{
-                        "TableName": "${this.table.tableName}"
-                    }`
-                }
-            },
-            service: 'dynamodb'
-        });
+        const scanRequest = this.createDynamoActionIntegration('Scan', scanRole);
 
-        const getResourceByIdRequest = new AwsIntegration({
-            action: 'GetItem',
-            options: {
-                credentialsRole: getRole,
-                integrationResponses: integrationResponses,
-                requestTemplates: {
-                    'application/json': `{
-                        "Key": {
-                            "${this.model}-id": {
-                                "N": "$method.request.path.id"
-                            }
-                        },
-                        "TableName": "${this.table.tableName}"
-                    }`
-                }
-            },
-            service: 'dynamodb'
-        });
+        const getResourceByIdRequest = this.createDynamoActionIntegration('GetItem', getRole,
+                                                                          `"Key": {
+            "${this.model}-id": {
+                "N": "$method.request.path.id"
+            }
+        },`
+                                                                         );
 
-        const deleteResourceByIdRequest = new AwsIntegration({
-            action: 'DeleteItem',
-            options: {
-                credentialsRole: deleteRole,
-                integrationResponses: integrationResponses,
-                requestTemplates: {
-                    'application/json': `{
-                        "Key": {
-                            "${this.model}-id": {
-                                "N": "$method.request.path.id"
-                            }
-                        },
-                        "TableName": "${this.table.tableName}"
-                    }`
-                }
-            },
-            service: 'dynamodb'
-        });
+                                                                         const deleteResourceByIdRequest = this.createDynamoActionIntegration('DeleteItem', deleteRole, 
+                                                                                                                                              `"Key": {
+                                                                             "${this.model}-id": {
+                                                                                 "N": "$method.request.path.id"
+                                                                             }
+                                                                         },`
+                                                                                                                                             );
 
-        const methodOptions = { 
-            methodResponses: [
-                { statusCode: '200' },
-                { statusCode: '400' },
-                { statusCode: '500' }
-            ]
-        };
+                                                                                                                                             const methodOptions = { 
+                                                                                                                                                 methodResponses: [
+                                                                                                                                                     { statusCode: '200' },
+                                                                                                                                                     { statusCode: '400' },
+                                                                                                                                                     { statusCode: '500' }
+                                                                                                                                                 ]
+                                                                                                                                             };
 
-        const allResources = this.api.root.addResource('family');
-        const singleResource = allResources.addResource('{id}');
+                                                                                                                                             const allResources = this.api.root.addResource('family');
+                                                                                                                                             const singleResource = allResources.addResource('{id}');
 
-        allResources.addMethod('GET', scanRequest, methodOptions);
-        singleResource.addMethod('GET', getResourceByIdRequest, methodOptions);
-        singleResource.addMethod('DELETE', deleteResourceByIdRequest, methodOptions);
+                                                                                                                                             allResources.addMethod('GET', scanRequest, methodOptions);
+                                                                                                                                             singleResource.addMethod('GET', getResourceByIdRequest, methodOptions);
+                                                                                                                                             singleResource.addMethod('DELETE', deleteResourceByIdRequest, methodOptions);
     }
 
     private createRestApi(): RestApi {
@@ -162,6 +129,23 @@ export class AwsIntegrationsStack extends cdk.Stack {
     private createRole(type: RoleTypes): Role {
         return new Role(this, `${type}Role`, {
             assumedBy: new ServicePrincipal('apigateway.amazonaws.com'),
+        });
+    }
+
+    private createDynamoActionIntegration(type: ActionTypes, role: Role, requestParams: string = ''): AwsIntegration {
+        return new AwsIntegration({
+            action: type,
+            options: {
+                credentialsRole: role,
+                integrationResponses: this.integrationResponses,
+                requestTemplates: {
+                    'application/json': `{
+                        ${requestParams}
+                        "TableName": "${this.table.tableName}"
+                    }`
+                }
+            },
+            service: 'dynamodb'
         });
     }
 }
