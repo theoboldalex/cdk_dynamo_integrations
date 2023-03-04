@@ -98,6 +98,7 @@ export class AwsIntegrationsStack extends cdk.Stack {
 
         const allResources = this.api.root.addResource('family');
         const singleResource = allResources.addResource('{id}');
+
         allResources.addMethod('GET', scanRequest, methodOptions);
         singleResource.addMethod('GET', getRequest, methodOptions);
     }
