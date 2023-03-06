@@ -61,7 +61,7 @@ export class AwsIntegrationsStack extends cdk.Stack {
                 statusCode: "500",
                 responseTemplates: {
                     "application/json": `{
-                        "error": "Internal Service Error!"
+                        "error": "Never release on a Friday!"
                     }`,
                 },
             },
