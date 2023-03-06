@@ -106,11 +106,11 @@ export class AwsIntegrationsStack extends cdk.Stack {
                 "${this.model}-id": {
                     "S": "$context.requestId"
                 },
-                "FirstName": {
-                    "S": "$input.path('$.firstname')"
+                "first-name": {
+                    "S": "$input.path('$.first_name')"
                 },
-                "LastName": {
-                    "S": "$input.path('$.lastname')"
+                "last-name": {
+                    "S": "$input.path('$.last_name')"
                 }
             },`
         );
