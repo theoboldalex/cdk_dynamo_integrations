@@ -32,6 +32,7 @@ export class AwsIntegrationsStack extends cdk.Stack {
         const scanPolicy = this.createPolicy("Scan");
         const getPolicy = this.createPolicy("GetItem");
         const deletePolicy = this.createPolicy("DeleteItem");
+        const putPolicy = this.createPolicy("PutItem");
 
         const scanRole = this.createRole("Scan");
         scanRole.attachInlinePolicy(scanPolicy);
@@ -41,6 +42,9 @@ export class AwsIntegrationsStack extends cdk.Stack {
 
         const deleteRole = this.createRole("Delete");
         deleteRole.attachInlinePolicy(deletePolicy);
+
+        const putRole = this.createRole("Put");
+        putRole.attachInlinePolicy(putPolicy);
 
         const errorResponses = [
             {
@@ -80,7 +84,7 @@ export class AwsIntegrationsStack extends cdk.Stack {
             getRole,
             `"Key": {
                 "${this.model}-id": {
-                    "N": "$method.request.path.id"
+                    "S": "$method.request.path.id"
                 }
             },`
         );
@@ -90,10 +94,27 @@ export class AwsIntegrationsStack extends cdk.Stack {
             deleteRole,
             `"Key": {
                 "${this.model}-id": {
-                    "N": "$method.request.path.id"
+                    "S": "$method.request.path.id"
                 }
             },`
         );
+
+        const createResourceByIdRequest = this.createDynamoActionIntegration(
+            "PutItem",
+            putRole,
+            `"Item": {
+                "${this.model}-id": {
+                    "S": "$context.requestId"
+                },
+                "FirstName": {
+                    "S": "$input.path('$.firstname')"
+                },
+                "LastName": {
+                    "S": "$input.path('$.lastname')"
+                }
+            },`
+        );
+
 
         const methodOptions = {
             methodResponses: [
@@ -103,10 +124,11 @@ export class AwsIntegrationsStack extends cdk.Stack {
             ],
         };
 
-        const allResources = this.api.root.addResource("family");
+        const allResources = this.api.root.addResource(this.model);
         const singleResource = allResources.addResource("{id}");
 
         allResources.addMethod("GET", scanRequest, methodOptions);
+        allResources.addMethod("POST", createResourceByIdRequest, methodOptions);
         singleResource.addMethod("GET", getResourceByIdRequest, methodOptions);
         singleResource.addMethod(
             "DELETE",
@@ -128,7 +150,7 @@ export class AwsIntegrationsStack extends cdk.Stack {
         return new Table(this, "DynamoTable", {
             partitionKey: {
                 name: `${this.model}-id`,
-                type: AttributeType.NUMBER,
+                type: AttributeType.STRING,
             },
             tableName: `${this.model}-table`,
             billingMode: BillingMode.PAY_PER_REQUEST,
