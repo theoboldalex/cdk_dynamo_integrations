@@ -83,7 +83,7 @@ export class AwsIntegrationsStack extends cdk.Stack {
             "GetItem",
             getRole,
             `"Key": {
-                "${this.model}-id": {
+                "${this.model}_id": {
                     "S": "$method.request.path.id"
                 }
             },`
@@ -93,7 +93,7 @@ export class AwsIntegrationsStack extends cdk.Stack {
             "DeleteItem",
             deleteRole,
             `"Key": {
-                "${this.model}-id": {
+                "${this.model}_id": {
                     "S": "$method.request.path.id"
                 }
             },`
@@ -103,18 +103,33 @@ export class AwsIntegrationsStack extends cdk.Stack {
             "PutItem",
             putRole,
             `"Item": {
-                "${this.model}-id": {
+                "${this.model}_id": {
                     "S": "$context.requestId"
                 },
-                "first-name": {
+                "first_name": {
                     "S": "$input.path('$.first_name')"
                 },
-                "last-name": {
+                "last_name": {
                     "S": "$input.path('$.last_name')"
                 }
             },`
         );
 
+        const updateResourceByIdRequest = this.createDynamoActionIntegration(
+            "PutItem",
+            putRole,
+            `"Item": {
+                "${this.model}_id": {
+                    "S": "$method.request.path.id"
+                },
+                "first_name" : {
+                    "S": "$input.path('$.first_name')"
+                },
+                "last_name" : {
+                    "S": "$input.path('$.last_name')"
+                }
+            },`
+        );
 
         const methodOptions = {
             methodResponses: [
@@ -135,11 +150,12 @@ export class AwsIntegrationsStack extends cdk.Stack {
             deleteResourceByIdRequest,
             methodOptions
         );
+        singleResource.addMethod("PUT", updateResourceByIdRequest, methodOptions);
     }
 
     private createRestApi(): RestApi {
         return new RestApi(this, "ApiGateway", {
-            restApiName: `${this.model}-api`,
+            restApiName: `${this.model}_api`,
             defaultCorsPreflightOptions: {
                 allowOrigins: Cors.ALL_ORIGINS,
             },
@@ -149,10 +165,10 @@ export class AwsIntegrationsStack extends cdk.Stack {
     private createDynamoTable(): Table {
         return new Table(this, "DynamoTable", {
             partitionKey: {
-                name: `${this.model}-id`,
+                name: `${this.model}_id`,
                 type: AttributeType.STRING,
             },
-            tableName: `${this.model}-table`,
+            tableName: `${this.model}_table`,
             billingMode: BillingMode.PAY_PER_REQUEST,
             removalPolicy: RemovalPolicy.DESTROY,
         });
